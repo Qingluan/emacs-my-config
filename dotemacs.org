@@ -1,0 +1,970 @@
+#+TITLE: Manage Emacs Configs via dotemacs.org
+#+AUTHOR: TONE<wick.zt@qq.com>
+
+* Macros
+
+** after-load
+#+BEGIN_SRC emacs-lisp
+  (defmacro after-load (feature &rest body)
+    "After FEATURE is loaded, evaluate BODY."
+    (declare (indent defun))
+    `(eval-after-load ,feature
+      '(progn ,@body)))
+#+END_SRC
+
+** environ-detection
+use =display-graphic-p= prediction to test whether the current environ
+is TUI or GUI
+#+BEGIN_SRC emacs-lisp
+  (defmacro when-terminal (&rest body)
+    "Work just like `progn' but will only evaluate expressions
+  when Emacs is running under a terminal."
+    `(when (not (display-graphic-p))
+       ,@body))
+
+  (defmacro when-gui (&rest body)
+    "Work only in GUI mode. `display-graphic-p' may do things wrong in
+  --daemon mode."
+    `(when (display-graphic-p)
+       ,@body))
+#+END_SRC
+
+** cycle-from-values
+#+BEGIN_SRC emacs-lisp
+  (defmacro cycle-values (var values)
+    "Cycle from values."
+    `(let ((idx (cl-position ,var ,values)))
+       (setq ,var (elt ,values (if (and idx (< (1+ idx) (length ,values)))
+                                   (1+ idx)
+                                 0)))))
+#+END_SRC
+
+* Customizations
+
+** recent files
+#+BEGIN_SRC emacs-lisp
+  (recentf-mode t)
+  (setq recentf-max-menu-items 250)
+  (setq recentf-keep '(file-remote-p file-readable-p))
+#+END_SRC
+
+** delete selection mode
+*NEED DOCUMENT HERE*
+#+BEGIN_SRC emacs-lisp
+  (delete-selection-mode t)
+#+END_SRC
+
+** split windows                                                       :kbd:
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-x -") 'split-window-vertically)
+  (global-set-key (kbd "C-x |") 'split-window-horizontally)
+#+END_SRC
+
+** moving among windows                                                :kbd:
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-S-h") 'windmove-left)
+  (global-set-key (kbd "C-S-j") 'windmove-down)
+  (global-set-key (kbd "C-S-k") 'windmove-up)
+  (global-set-key (kbd "C-S-l") 'windmove-right)
+#+END_SRC
+
+** encodings
+#+BEGIN_SRC emacs-lisp
+  (set-language-environment "Chinese-GB18030") ; "UTF-8"
+  (set-default-coding-systems 'utf-8-unix)
+  (set-buffer-file-coding-system 'utf-8-unix)
+  (set-clipboard-coding-system 'utf-8-unix)
+  (set-file-name-coding-system 'utf-8-unix)
+  (set-keyboard-coding-system 'utf-8-unix)
+  (set-terminal-coding-system 'utf-8-unix)
+  (set-selection-coding-system 'utf-8-unix)
+  (set-next-selection-coding-system 'utf-8-unix)
+
+  (prefer-coding-system 'utf-8-unix)
+  (modify-coding-system-alist 'process "*" 'utf-8-unix)
+  (setq-default pathname-coding-system 'utf-8-unix)
+  (setq locale-coding-system 'utf-8-unix)
+  (setq ansi-color-for-comint-mode t)
+  (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
+  (setq file-name-coding-system 'utf-8-unix)
+  (setq default-buffer-file-coding-system 'utf-8-unix)
+  (setq slime-net-coding-system 'utf-8-unix)
+#+END_SRC
+
+* Packages
+config the elpa source. (ELPA - Emacs Lisp Package Archive)
+
+** package-archive-mirrors-list
+
+*** the origin ones
+#+BEGIN_SRC emacs-lisp
+  (setq package-mirror-origin
+        '(("gnu" . "http://elpa.gnu.org/packages/")
+          ("melpa" . "http://melpa.milkbox.net")
+          ("melpa-stable" . "https://stable.melpa.org/packages/")))
+#+END_SRC
+
+*** the tsinghua ones
+#+BEGIN_SRC emacs-lisp
+  (setq package-mirror-tsinghua
+        '(("gnu" . "https://mirrors.tuna.tsinghua.edu.cn/elpa/gnu/")
+          ("melpa" . "https://mirrors.tuna.tsinghua.edu.cn/elpa/melpa/")
+          ("melpa-stable" . "https://mirrors.tuna.tsinghua.edu.cn/elpa/melpa-stable/")))
+#+END_SRC
+
+*** the emacs-china ones
+#+BEGIN_SRC emacs-lisp
+  (setq package-mirror-emacs-china
+        '(("gnu" . "https://elpa.emacs-china.org/gnu/")
+          ("melpa" . "https://elpa.emacs-china.org/melpa/")
+          ("melpa-stable" . "https://elpa.emacs-china.org/melpa-stable/")))
+#+END_SRC
+
+** select-an-archive-mirror
+#+BEGIN_SRC emacs-lisp
+  (setq package-archives package-mirror-emacs-china)
+#+END_SRC
+
+** initialize-the-packages-list
+#+BEGIN_SRC emacs-lisp
+  (when (not package-archive-contents)
+    (package-refresh-contents))
+#+END_SRC
+
+** ensure-packages-installed
+
+*** function defination
+#+BEGIN_SRC emacs-lisp
+  (defun ensure-package-installed (&rest packages)
+    "Assure every package list in `packages' is installed, ask for installation
+  if it has not been. A list of installed packages or nil for every skipped
+  package."
+    (mapcar
+      (lambda (package)
+        (if (package-installed-p package)
+          nil
+          (if (y-or-n-p (format "Package %s is missing, INSTALL it now?" package))
+            (package-install package)
+            package)))
+      packages))
+#+END_SRC
+
+
+*** add to packages list
+#+BEGIN_SRC emacs-lisp
+  (ensure-package-installed
+   ;; Appearance
+   'rainbow-delimiters
+   'flatland-theme
+   'color-theme-sanityinc-tomorrow
+   'smart-mode-line
+   'htmlize  ; highlight for code blocks when exporting
+
+   ;; Coding files support
+   'flycheck
+   'csv-mode
+   'dockerfile-mode
+   'markdown-mode
+   'json-mode
+   'io-mode
+   'yaml-mode
+   'graphviz-dot-mode
+   'solidity-mode
+
+   ;; Git & Projectile
+   'magit
+   'diff-hl
+   'projectile
+
+   ;; Python
+   'jedi
+   'elpy
+   'ob-ipython
+
+   ;; Lisp
+   'slime
+   'common-lisp-snippets
+
+   ;; Scala
+   'scala-mode
+   'sbt-mode
+   ; 'flycheck-scala-sbt
+
+   ;; Octave/Matlab
+   'matlab-mode
+   ;; 'octave-mode
+
+   ;; Javascript
+   'js2-mode
+
+   ;; Other Miscs for General Use
+   'avy
+   'counsel
+   'editorconfig
+   'neotree
+   'multiple-cursors
+   'yasnippet
+   'youdao-dictionary
+   'chinese-word-at-point
+   'undo-tree
+   'wanderlust)
+#+END_SRC
+
+** packages-customizations
+
+*** TODO ace-jump-mode
+#+BEGIN_SRC emacs-lisp
+  ;; (global-set-key (kbd "C-c SPC") 'ace-jump-mode)
+  ;; (eval-after-load "ace-jump-mode" '(ace-jump-mode-enable-mark-sync))
+  ;; (global-set-key (kbd "C-x SPC") 'ace-jump-mode-pop-mark)
+#+END_SRC
+
+*** editorconfig
+#+BEGIN_SRC emacs-lisp
+  (editorconfig-mode t)
+#+END_SRC
+
+*** projectile
+#+BEGIN_SRC emacs-lisp
+  (projectile-mode)
+  (setq projectile-switch-project-action 'neotree-projectile-action)
+#+END_SRC
+
+*** youdao-dictionary
+#+BEGIN_SRC emacs-lisp
+  (setq url-automatic-caching t)
+  (global-set-key (kbd "C-c q") 'youdao-dictionary-search-at-point)
+  (setq youdao-dictionary-search-history-file "~/.emacs.d/youdao")
+  (setq youdao-dictionary-use-chinese-word-segmentation t)
+#+END_SRC
+
+*** TODO chinese-word-split
+#+BEGIN_SRC emacs-lisp
+  ;; (thing-at-point 'chinese-word)
+  ;; (thing-at-point 'chinese-or-other-word)
+  ;; (add-to-list 'load-path "/opt/local/emacs-chinese-word-segmentation")
+  ;; (setq cns-prog "/opt/local/emacs-chinese-word-segmentation/chinese-word-segmentation")
+  ;; (setq cns-dict-directory"/opt/local/emacs-chinese-word-segmentation/dict")
+  ;; (setq cns-recent-segmentation-limit 20)
+  ;; (setq cns-debug nil)
+  ;; (require 'cns nil t)
+  ;; (when (featurep 'cns)
+  ;;   (add-hook 'find-file-hook 'cns-auto-enable))
+#+END_SRC
+
+*** ivy & swiper & counsel
+
+**** enable modes
+#+BEGIN_SRC emacs-lisp
+  (ivy-mode t)
+  (setq ivy-use-virtual-buffers t)
+  (setq ivy-count-format "(%d/%d)")
+  (setq enable-recursive-minibuffers t)
+#+END_SRC
+
+**** key bindings                                                    :kbd:
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-c s") 'shell)
+  (global-set-key (kbd "C-s") 'swiper)
+  (global-set-key (kbd "C-c r") 'counsel-rg)
+  (global-set-key (kbd "C-c C-r") 'ivy-resume)
+  (global-set-key (kbd "M-x") 'counsel-M-x)
+  (global-set-key (kbd "C-x C-f") 'counsel-find-file)
+  (global-set-key (kbd "<f1> f") 'counsel-describe-function)
+  (global-set-key (kbd "<f1> v") 'counsel-describe-variable)
+  (global-set-key (kbd "<f1> l") 'counsel-find-library)
+  (global-set-key (kbd "<f2> i") 'counsel-info-lookup-symbol)
+  (global-set-key (kbd "<f2> u") 'counsel-unicode-char)
+  (global-set-key (kbd "C-c g") 'counsel-git)
+  (global-set-key (kbd "C-c j") 'counsel-git-grep)
+  (global-set-key (kbd "C-c k") 'counsel-ag)
+  (global-set-key (kbd "C-x l") 'counsel-locate)
+  (global-set-key (kbd "C-S-o") 'counsel-rhythmbox)
+  (define-key read-expression-map (kbd "C-r") 'counsel-expression-history)
+  ;; This is the old `M-x'.
+  (global-set-key (kbd "C-c C-c M-x") 'execute-extended-command)
+#+END_SRC
+
+**** packages combination
+#+BEGIN_SRC emacs-lisp
+  (setq projectile-completion-system 'ivy)
+  (setq magit-completing-read-function 'ivy-completing-read)
+#+END_SRC
+
+*** magit
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-x g") 'magit-status)
+  (global-set-key (kbd "C-x M-g") 'magit-dispatch-popup)
+#+END_SRC
+
+*** lisp executable & slime environ
+#+BEGIN_SRC emacs-lisp
+  (setq inferior-lisp-program "/usr/local/bin/sbcl")
+  ; (setq slime-contribs '(slime-fancy))
+  (slime-setup '(slime-fancy slime-asdf slime-banner))
+#+END_SRC
+
+*** javascript mode
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'auto-mode-alist '("\\.js\\'" . js2-mode))
+#+END_SRC
+
+*** octave/matlab mode
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'auto-mode-alist '("\\.m?\\'" . matlab-mode))
+#+END_SRC
+
+*** graphviz-dot mode
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'org-src-lang-modes '("dot" . graphviz-dot))
+  (add-to-list 'auto-mode-alist '("\\.dot?\\'" . graphviz-dot-mode))
+#+END_SRC
+
+*** jinja2 mode
+#+BEGIN_SRC emacs-lisp
+  ;; (add-to-list 'auto-mode-alist '("\\.html?\\'" . jinja2-mode))
+#+END_SRC
+
+*** multiple cursors
+#+BEGIN_SRC emacs-lisp
+  (defun c-mark-next-like-this-word ()
+    "enhanced `mc/mark-next-like-this'"
+    (interactive)
+    (if (not (region-active-p))
+        (mark-word))
+    (mc/mark-next-like-this-word))
+
+  (global-set-key (kbd "C-S-c C-S-c") 'mc/edit-lines)
+  (global-set-key (kbd "C->") 'mc/mark-next-like-this)
+  (global-set-key (kbd "C-<") 'mc/mark-previous--like-this)
+  (global-set-key (kbd "C-c C-<") 'mc/mark-all-like-this)
+  (global-set-key (kbd "C-c C->") 'c-mark-next-like-this-word)
+#+END_SRC
+
+*** neotree
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-c t") 'neotree-toggle)
+#+END_SRC
+*** avy jump
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-c C-k") 'avy-goto-char)
+#+END_SRC
+
+*** undo & redo - tree
+#+BEGIN_SRC emacs-lisp
+  (global-undo-tree-mode t)
+  (defalias 'redo 'undo-tree-redo)
+#+END_SRC
+
+*** BLOCKED email - mu4e
+#+BEGIN_SRC emacs-lisp
+  ;; (require 'mu4e)
+
+  ;; (setq mu4e-maildir "~/.local/mail")
+  ;; (setq mu4e-sent-folder "/sent")
+  ;; (setq mu4e-drafts-folder "/drafts")
+  ;; (setq mu4e-trash-folder "/trash")
+
+  ;; (setq
+  ;;  message-send-mail-function 'smtpmail-send-it
+  ;;  smtpmail-default-smtp-server "smtp.exmail.qq.com"
+  ;;  smtpmail-smtp-server "smtp.exmail.qq.com"
+  ;;  smtpmail-local-domain "knownsec.com")
+#+END_SRC
+
+*** email - wanderlust
+
+**** basic configs
+#+BEGIN_SRC emacs-lisp
+  (if (boundp 'mail-user-agent)
+      (setq mail-user-agent 'wl-user-agent))
+  (if (fboundp 'define-mail-user-agent)
+      (define-mail-user-agent
+        'wl-user-agent
+        'wl-user-agent-compose
+        'wl-draft-send
+        'wl-draft-kill
+        'mail-send-hook))
+#+END_SRC
+
+**** smtp account configs
+#+BEGIN_SRC emacs-lisp
+  (setq wl-user-mail-address-list (quote ("wick.zt@gmail.com" "zhangt3@knownsc.com")))
+
+  ;;(NOTE: "M-: wl-draft-parent-folder" => %INBOX:myname/clear@imap.gmail.com:993)
+  (setq wl-draft-config-alist
+        '(
+          ;; ((string-match "gmail.com" wl-draft-parent-folder)
+          ;;  (template . "gmail"))
+          ((string-match "knownsec.com" wl-draft-parent-folder)
+           (template . "work"))
+          ;; ;; automatic for replies
+          ;; (reply "\\(To\\|Cc\\|Delivered-To\\): .*gmail.com.*"
+          ;;  (template . "gmail"))
+          (reply "\\(To\\|Cc\\|Delivered-To\\): .*knownsec.com.*"
+           (template . "work"))))
+
+  ;;choose template with C-c C-j
+  (setq wl-template-alist
+        '(
+          ;; ("gmail"
+          ;;  (wl-from . "WickzT <wick.zt@gmail.com>")
+          ;;  (wl-smtp-posting-user . "wick.zt")
+          ;;  (wl-smtp-posting-server . "smtp.gmail.com")
+          ;;  (wl-smtp-authenticate-type ."plain")
+          ;;  (wl-smtp-connection-type . 'starttls)
+          ;;  (wl-smtp-posting-port . 587)
+          ;;  (wl-local-domain . "gmail.com")
+          ;;  (wl-message-id-domain . "smtp.gmail.com"))
+          ("knownsec"
+           ("Fcc" . "Outbox:\"zhangt3@knownsec.com\"/login@imap.exmail.qq.com")
+           (wl-from . "张通 <zhangt3@knownsec.com>")
+           (wl-smtp-posting-user . "zhangt3@knownsec.com")
+           (wl-smtp-posting-server . "smtp.exmail.qq.com")
+           (wl-local-domain . "knownsec.com"))
+           ("From" . wl-from)))
+#+END_SRC
+
+**** mailbox configs
+#+BEGIN_SRC emacs-lisp
+  ;; readings
+  (setq wl-stay-folder-window t)
+
+  (setq wl-message-ignored-field-list
+        '(".")
+        wl-message-visible-field-list
+        '("^\\(To\\|Cc\\):"
+          "^Subject:"
+          "^\\(From\\|Reply-To\\):"
+          "^\\(Posted\\|Date\\):"
+          "^Organization:"
+          "^X-\\(Face\\(-[0-9]+\\)?\\|Weather\\|Fortune\\|Now-Playing\\):"))
+        ;; wl-message-sort-field-list
+        ;; (append wl-message-sort-field-list
+        ;;         '("^Reply-To" "^Posted" "^Date" "^Organization")))
+
+  ;; decode mime
+  (setq mime-header-accept-quoted-encoded-words t)
+#+END_SRC
+
+* Editors
+
+** comment
+DWIM - Do What I Mean
+- if a region is activated, comment/uncomment it
+- else if the cursor is at the end of the line, add a comment to the end
+- else comment/uncomment the current line
+#+BEGIN_SRC emacs-lisp
+  (defun comment-dwim-line (&optional arg)
+    "Replacement for the `comment-dwim' command. If no region is selected
+  and current line is not blank and we are not at the end of the line, then
+  comment current line. Replaces default behaviour of `comment-dwim', when
+  it inserts comment at the end of the line."
+    (interactive "*P")
+    (comment-normalize-vars)
+    (if (and (not (region-active-p))
+             (not (looking-at "[ \t]*$")))
+        (comment-or-uncomment-region (line-beginning-position) (line-end-position))
+      (comment-dwim arg)))
+  (global-set-key (kbd "M-;") 'comment-dwim-line)
+#+END_SRC
+
+** copy
+- if a region is activated, copy & deactivate it
+- else copy the current line
+#+BEGIN_SRC emacs-lisp
+  ;; `M-w' will copy a line (with ending "\n") if no region is active
+  (defadvice kill-line (before check-position activate)
+    "Smart copy: if no region active, copy teh current line."
+    (if (and (eolp) (not (bolp)))
+        (progn
+          (forward-char 1)
+          (just-on-space 0)
+          (backward-char 1))))
+  (defadvice kill-ring-save (before slick-copy activate compile)
+    "When called interactively with no active region, copy a single line instead."
+    (interactive
+     (if mark-active (list (region-beginning) (region-end))
+       (list (line-beginning-position)
+             (line-beginning-position 2)))))
+#+END_SRC
+
+** delete
+- if a region is activated, cut the region
+- else remove from the current char until the end of the current line
+#+BEGIN_SRC emacs-lisp
+  (setq-default kill-whole-line t)
+  (fset 'yes-or-no-p 'y-or-n-p)
+#+END_SRC
+
+** query-replace
+an enhanced =query-replace= operation to be triggered when selected
+or highlighted. from [[https://zhuanlan.zhihu.com/p/24541007][zhuanlan.zhihu.com]]
+#+BEGIN_SRC emacs-lisp
+  (defun enhanced-query-replace ()
+    (interactive)
+    (unless (minibufferp)
+      (cond ((use-region-p) (f-query-replace-region))
+            ((region-active-p) (user-error "Region activated!"))
+            ((highlight-symbol-symbol-highlighted-p
+              (highlight-symbol-get-symbol))
+             (f-query-replace-hs))
+            (t (call-interactively 'query-replace)))))
+
+  (defun f-query-replace-region ()
+    (let ((region (buffer-substring-no-properties
+                   (region-beginning)
+                   (region-end)))
+          (replacement (read-from-minibuffer "Replacement: " nil nil nil)))
+      (goto-char (region-beginning))
+      (deactivate-mark)
+      (query-replace region replacement)
+      (setq query-replace-defaults (cons region replacement))))
+
+  (defun f-query-replace-hs ()
+    (let ((hs (highlight-symbol-get-symbol))
+          (replacement (read-from-minibuffer "Replacement: " nil nil nil)))
+      (goto-char (beginning-of-thing 'symbol))
+      (query-replace-regexp hs replacement)
+      (setq query-replace-defaults (cons hs replacement))))
+
+  (defun c-isearch-yank ()
+    (interactive)
+    (if (not (use-region-p)) (isearch-yank-string (current-kill 0))
+      (deactivate-mark)
+      (isearch-yank-internal 'mark)))  ; (lambda () (mark)))))
+
+  ;; (define-key isearch-mode-map (kbd "xxx") 'c-isearch-yank)
+#+END_SRC
+
+** DOING buffer-switch
+switch among /normal/ buffers
+*DOING* merge =c-switch-to-{prev,next}-buffer= into one
+#+BEGIN_SRC emacs-lisp
+  (defun normal-buffer-p ()
+    "Whether a buffer is \"normal\"."
+    (and (not buffer-read-only)
+         (buffer-file-name)))
+
+  (defun c-switch-to-prev-buffer ()
+    "Use a `flag' to avoid endless loop."
+    (interactive)
+    (unless (minibufferp)
+      (let ((flag t)
+            (current (buffer-name)))
+        (switch-to-prev-buffer)
+        (while (and flag (not (normal-buffer-p)))
+          (switch-to-prev-buffer)
+          (when (string= current (buffer-name))
+            (setq flag nil))))))
+
+  (defun c-switch-to-next-buffer ()
+    "Use a `flag' to avoid endless loop."
+    (interactive)
+    (unless (minibufferp)
+      (let ((flag t)
+            (current (buffer-name)))
+        (switch-to-next-buffer)
+        (while (and flag (not (normal-buffer-p)))
+          (switch-to-next-buffer)
+          (when (string= current (buffer-name))
+            (setq flag nil))))))
+
+  (global-set-key (kbd "C-x <left>") 'c-switch-to-prev-buffer)
+  (global-set-key (kbd "C-x <right>") 'c-switch-to-next-buffer)
+#+END_SRC
+
+* UI (using some packages)
+
+** generic
+
+*** theme
+#+BEGIN_SRC emacs-lisp
+  ;; (when-terminal (load-theme 'doom-one-light t))
+  ;; (when-gui (load-theme 'doom-nova t))
+  ;; (require 'leuven-theme)
+  ;; (load-theme 'leuven-dark t)
+  (load-theme 'sanityinc-tomorrow-night t)
+#+END_SRC
+
+*** scroll
+#+BEGIN_SRC emacs-lisp
+  (setq scroll-conservatively 10000)
+  (setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
+  (setq mouse-wheel-progressive-speed nil)
+  (setq mouse-wheel-follow-mouse 't)
+  (setq scroll-step 1)
+  (setq scroll-margin 2)
+#+END_SRC
+
+*** show blank characters
+#+BEGIN_SRC emacs-lisp
+  (global-whitespace-mode t)
+  (setq whitespace-style '(face tabs trailing tab-mark))
+  ;; (setq whitespace-style '(face space tabs trailing lines-tail newline empty tab-mark newline-mark space-mark)
+#+END_SRC
+
+*** row & col number
+#+BEGIN_SRC emacs-lisp
+  (column-number-mode t)
+  ;; (require 'linum-relative)
+  ;; (setq linum-relative-format "%3s ")
+  ;; (setq linum-relative-current-symbol "->")
+  (setq linum-format "%3s ")
+  ;; (set-face-foreground 'linum "#AAA")
+  ;; (set-face-background 'linum "#222")
+  ;; (add-hook 'find-file-hooks (lambda () (linum-mode t)))
+#+END_SRC
+
+*** git & git-diff
+#+BEGIN_SRC emacs-lisp
+  (diff-hl-flydiff-mode t)
+  (when-terminal (diff-hl-margin-mode t))
+  (diff-hl-dired-mode t)
+  (global-diff-hl-mode t)
+#+END_SRC
+
+*** brackets
+- highlight both parens when cursor between them
+- use rainbow brackets at *lisp mode
+#+BEGIN_SRC emacs-lisp
+  (show-paren-mode t)
+
+  (define-advice f-show-paren (:around (fn) fix-f-show-paren)
+    "Highlight enclosing parens."
+    (cond ((looking-at-p "\\s(") (funcall fn))
+          (t (save-excursion
+               (ignore-errors (backward-up-list))
+               (funcall fn)))))
+  (setq show-paren-style 'parenthesis)
+
+  (add-hook 'lisp-mode-hook #'rainbow-delimiters-mode)
+  (add-hook 'emacs-lisp-mode-hook #'rainbow-delimiters-mode)
+#+END_SRC
+
+*** miscs
+#+BEGIN_SRC emacs-lisp
+  (tool-bar-mode 0)
+  (when-terminal (menu-bar-mode 0))
+  (when-gui (scroll-bar-mode 0))
+  (setq fill-column 80)
+  (global-hl-line-mode t)
+  (set-face-background 'highlight "#222")
+  (set-face-foreground 'highlight nil)
+  ;; (set-face-underline-p 'highlight t)
+  (setq default-tab-width 4)
+  (setq-default indent-tabs-mode nil)
+  (setq inhibit-startup-message t)
+  (add-hook 'before-save-hook #'delete-trailing-whitespace)
+#+END_SRC
+
+** mode-line
+using package /smart-mode-line/
+#+BEGIN_SRC emacs-lisp
+  (setq sml/no-confirm-load-theme t)
+  (setq sml/theme 'dark)
+  (sml/setup)
+  (setq rm-excluded-modes
+        '("Guide"                    ; guide-key mode
+          "hc"                       ; hardcore mode
+          "AC"                       ; auto-complete
+          "vl"                       ; global visual line mode enabled
+          "Wrap"                     ; shows up if visual-line-mode is enabled for that buffer
+          "Omit"                     ; omit mode in dired
+          "yas"                      ; yasnippet
+          "drag"                     ; drag-stuff-mode
+          "VHl"                      ; volatile highlights
+          "ctagsU"                   ; ctags update
+          "Undo-Tree"                ; undo tree
+          "wr"                       ; Wrap Region
+          "SliNav"                   ; elisp-slime-nav
+          "Fly"                      ; Flycheck
+          "PgLn"                     ; page-line-break
+          "GG"                       ; ggtags
+          "ElDoc"                    ; eldoc
+          "hl-highlight"             ; hl-anything
+          "WS"
+          "Helm"
+          ))
+#+END_SRC
+
+** GUI
+mainly font settings
+#+BEGIN_SRC emacs-lisp
+  (when-gui
+   ;; PATH
+   (add-to-list 'exec-path "~/Codes/Scripts/bin")
+   (add-to-list 'exec-path "/usr/local/bin")
+   (add-to-list 'exec-path "/usr/local/sbin")
+
+   ;; Window size & position
+   (set-frame-size (selected-frame) 82 63)
+
+   ;; (set-frame-position (selected-frame) 875 0))
+   ;; (set-frame-position (selected-frame) 0 0)
+
+   ;; Test English & CJK characters
+   ;; +----------+-------------+
+   ;; | Header   |  Header     |
+   ;; +==========+=============+
+   ;; | 对齐有效 | Aligned     |
+   ;; | Compare  | Line Height |
+   ;; | 行高有效 | Line Height |
+   ;; +----------+-------------+
+   (defun gui-set-font (font-name font-size)
+     (set-face-attribute 'default nil
+                         :family font-name
+                         :height font-size
+                         :weight 'normal))
+
+   ;; (gui-set-font "Menlo for Powerline" 140)
+   (gui-set-font "Hack" 120)
+   ;; (gui-set-font "m+ 1m" 160)
+   ;; (add-hook 'org-mode-hook (lambda () (gui-set-font "m+ 1m" 160)))
+   ;; (add-hook 'markdown-mode-hook (lambda () (gui-set-font "m+ 1m" 160)))
+
+   ;; Chinese
+   ;; (dolist (charset '(kana han symbol cjk-misc bopomofo))
+   ;;   (set-fontset-font (frame-parameter nil 'font)
+   ;;                     charset
+   ;;                     (font-spec :family "Lantinghei SC" :size 14)))
+
+   (setq sentence-end "\\([。！？]\\|……\\|[.?!][]\"')}]*\\($\\|[ \t]\\)\\)[ \t\n]*")
+   (setq sentence-end-double-space nil))
+#+END_SRC
+
+and wubi input method
+#+BEGIN_SRC emacs-lisp
+  (register-input-method
+   "chinese-wbim" "euc-cn" 'chinese-wbim-use-package
+   "五笔" "五笔" "~/.emacs.d/wb.txt")
+#+END_SRC
+
+* Auto-Save-And-Backup
+
+** close auto save temp file by emacs (#foo#)
+#+BEGIN_SRC emacs-lisp
+  (setq auto-save-default nil)
+#+END_SRC
+
+** backup
+#+BEGIN_SRC emacs-lisp
+  (setq make-backup-files nil)
+  ;; (setq backup-by-copying t)  ; backup by copy not rename (default)
+  ;; (setq backup-directory-alist '(("." "~/.emacs.d/backups")))  ; backup directory
+#+END_SRC
+
+** TODO auto save after some interval without operation
+
+* Auto-Complete
+#+BEGIN_SRC emacs-lisp
+  (require 'auto-complete-config)
+  (global-auto-complete-mode t)
+  (add-to-list 'ac-dictionary-directories "~/.emacs.d/elpa/auto-complete-*/dict")
+  (ac-config-default)
+
+  (setq tab-always-indent 'complete)
+
+  ;; Prevent to trigger auto complete in case of compile
+  ;; and use TAB to trigger it manually
+  (setq-default ac-expand-on-auto-complete nil)
+  (setq-default ac-auto-start nil)
+  (ac-set-trigger-key "TAB")
+
+  ; (after-load
+  ;   'init-yasnippet
+  ;   (set-default 'ac-sources
+  ;                '(ac-source-dictionary
+  ;                  ac-source-words-in-buffer
+  ;                  ac-source-words-in-same-mode-buffers
+  ;                  ac-source-words-in-all-buffer
+  ;                  ac-source-functions
+  ;                  ac-source-yasnippet)))
+#+END_SRC
+
+* Programming-Modes
+
+** yasnippet-mode
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'python-mode-hook '(lambda () (yas-minor-mode)))
+  (add-hook 'scala-mode-hook '(lambda () (yas-minor-mode)))
+  (add-hook 'octave-mode-hook '(lambda () (yas-minor-mode)))
+  (add-hook 'matlab-mode-hook '(lambda () (yas-minor-mode)))
+  (add-hook 'lisp-mode-hook '(lambda () (yas-minor-mode)))
+#+END_SRC
+
+** org-mode
+*** babel do load languages
+#+BEGIN_SRC emacs-lisp
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((sh . t)
+     (python . t)
+     (ipython . t)
+     (ruby . t)
+     (sqlite . t)
+     (perl . t)
+     (lisp . t)
+     (emacs-lisp . t)
+     (C . t)
+     (dot . t)
+     ))
+#+END_SRC
+
+*** highlight
+don't need to insert =space= between Chinese and ASCII chars.
+#+BEGIN_SRC emacs-lisp
+  (setcar (nthcdr 0 org-emphasis-regexp-components) " \t('\"{[:nonascii:]")
+  (setcar (nthcdr 1 org-emphasis-regexp-components) "- \t.,:!?;'\")}\\[[:nonascii:]")
+  (org-set-emph-re 'org-emphasis-regexp-components org-emphasis-regexp-components)
+  ;; (org-element-update-syntax)
+#+END_SRC
+
+*** underline and so on
+but takes no effects ...
+#+BEGIN_SRC emacs-lisp
+  (with-eval-after-load 'org
+    (setq org-match-substring-regexp
+          (concat
+           ;; 限制上标和下标的匹配范围，org 中对其的介绍见：(org) Subscripts and superscripts
+           "\\([0-9a-zA-Zα-γΑ-Ω]\\)\\([_^]\\)\\("
+           "\\(?:" (org-create-multibrace-regexp "{" "}" org-match-sexp-depth) "\\)"
+           "\\|"
+           "\\(?:" (org-create-multibrace-regexp "(" ")" org-match-sexp-depth) "\\)"
+           "\\|"
+           "\\(?:\\*\\|[+-]?[[:alnum:].,\\]*[[:alnum:]]\\)\\)")))
+#+END_SRC
+
+*** todo keywords
+1. Use =|= to seperate =not done yet= and =done=
+2. character in parentheses in the shot key
+3. Use =!= to insert a timestamp when changing the status
+4. Use =@= to insert a comment when changed to this status
+
+#+BEGIN_SRC emacs-lisp
+  (setq org-todo-keywords
+        '((type "WORK(w!)" "LEARN(s!)" "INTREST(i!)" "|")
+          (sequence "TODO(t!)" "DOING(d!)" "BLOCKED(b!)" "REVIEW(r!)" "|" "NOTDOING(n@/!)" "DONE(o!)")))
+  (setq org-todo-keyword-faces
+        '(("WORK" . (:background "gray" :foreground "RED" :weight bold))
+          ("LEARN" . (:background "gray" :foreground "RED" :weight bold))
+          ("INTREST" . (:background "gray" :foreground "RED" :weight bold))
+          ("TODO" . (:foreground "dark-red" :weight bold))
+          ("DOING" . (:foreground "orange" :weight bold))
+          ("BLOCKED" . (:foreground "red" :weight bold :underline t))
+          ("REVIEW" . (:foreground "magenta" :weight bold :underline t))
+          ("NOTDOING" . (:foreground "grey" :weight bold :underline t))
+          ("DONE" . (:foreground "green" :weight bold))))
+#+END_SRC
+
+*** export
+#+BEGIN_SRC emacs-lisp
+  (require 'cl)
+  (defun unicode-for-org-html-checkbox (checkbox)
+    "Format CHECKBOX into Unicode Characters."
+    (case checkbox
+          (on "&#x2611;")
+          (off "&#x2610;")
+          (trans "&#x2612;")
+          (t "")))
+  (defadvice org-html-checkbox (around unicode-checkbox activate)
+    (setq ad-return-value (unicode-for-org-html-checkbox (ad-get-arg 0))))
+
+  (setq org-support-shift-select t)
+  (setq org-html-checkbox-type 'html)
+  (setq org-src-fontify-natively t)
+  (setq org-html-postamble nil)
+  (setq org-html-head "<link rel=\"stylesheet\" type=\"text/css\" href=\"http://doc.norang.ca/org.css\" />")
+  (setq org-export-backends (quote (ascii html icalendar latex md)))
+  (setq org-export-default-language "zh-CN")
+  (setq org-export-with-section-numbers nil)
+  (setq org-export-with-sub-superscripts '{}) ; 下划线不转义，{}内部分变下标
+  (add-hook 'org-mode-hook #'org-indent-mode)
+  (add-hook 'org-mode-hook (lambda () (setq truncate-lines nil)))
+#+END_SRC
+
+*** key bindings
+#+BEGIN_SRC emacs-lisp
+  (local-set-key "\C-\M-g" 'org-plot/gnuplot)
+#+END_SRC
+
+*** agenda
+#+BEGIN_SRC emacs-lisp
+  (setq org-agenda-files
+        (list "~/Documents/Org/knownsec.org"
+              "~/Documents/Org/keep-alive.org"
+              "~/Documents/Org/toss.org"))
+#+END_SRC
+
+** python-mode
+*** initialization
+#+BEGIN_SRC emacs-lisp
+  (with-eval-after-load 'python
+    (defun python-shell-completion-native-try ()
+      "Return non-nil if can trigger native completion."
+      (let ((python-shell-completion-native-enable t)
+            (python-shell-completion-native-output-timeout
+             python-shell-completion-native-try-output-timeout))
+        (python-shell-completion-native-get-completions
+         (get-buffer-process (current-buffer))
+         nil "_"))))
+#+END_SRC
+*** jedi & elpy
+#+BEGIN_SRC emacs-lisp
+  (setq jedi:setup-keys t)
+  (add-hook 'python-mode-hook 'jedi:setup)
+  (setq jedi:complete-on-dot t)
+
+  (elpy-enable)
+  (add-hook 'python-mode-hook 'flycheck-mode)
+  ;; (add-hook 'python-mode-hook 'py-autopep8-enable-on-save)
+#+END_SRC
+* Shortcut-area
+** search area
+#+BEGIN_SRC emacs-lisp
+  (load "w3m-search")
+  (add-to-list 'w3m-search-engine-alist '("github" "https://github.com/search?q=%s"))
+  (defun Search-all(query)
+    (interactive
+     (list
+      (completing-read "Search in :"
+                       (loop for var in w3m-search-engine-alist
+                             collect  (car var) ))))
+    (let ((first (car (split-string query)))
+          (qu query)
+          (engine "google"))
+      (progn
+        (if (-contains-p (loop for var in w3m-search-engine-alist collect (car var))  first)
+            (progn
+              (setq engine first )
+              (setq qu (string-join (cdr (split-string query)) " "))))
+        (w3m-search-new-session engine qu))))
+
+    (global-set-key (kbd "C-c s") `Search-all)
+#+END_SRC
+** vim area
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-c v") `evil-mode)
+#+END_SRC
+* Daily Manage
+#+BEGIN_SRC emacs-lisp
+   (setq org-capture-templates
+        '(("t" "Todo" entry (file+headline "~/.emacs.d/todos.org" "工作安排")
+           "* TODO [#B] %?\n  %i\n"
+           :empty-lines 1)))
+  (global-set-key (kbd "C-c w") 'org-capture)
+#+END_SRC
+* COMMENT Math export setting
+#+BEGIN_SRC emacs-lisp
+  (setq org-html-mathjax-options
+        '((path "https://cdn.mathjax.org/mathjax/latest/MathJax.js")
+          (scale "100")
+          (align "center")
+          (indent "2em")
+          (mathml nil)))
+  (setq org-publish-project-alist
+        '(("blog-notes" ; Notes in org format
+           :publishing-function org-html-publish-to-html
+           ;;...other options...
+           :html-mathjax "path \"https://cdn.mathjax.org/mathjax/latest/MathJax.js\"")))
+#+END_SRC
